@@ -1,0 +1,10 @@
+numpy == 
+pandas == 
+scipy ==
+sklearn ==
+matplotlib ==
+geopandas ==
+libpysal == 
+shapely ==
+networkx == 
+pyclustering
