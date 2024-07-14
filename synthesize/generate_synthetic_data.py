@@ -30,18 +30,26 @@ import copy
 
 class Synthesizer:
     def __init__(self, synthetic_data_info = gpd.read_file('sticc_points.shp'), 
-                 clean_means_variances = pd.read_csv("clean-means-variances.csv"),
+                 clean_means_variances = np.load("clean-means-variances.npz"),
                  neighborcount=3, rate = 0.3):
         np.random.seed(1234)
         self.synthetic_data_info = synthetic_data_info
         self.clean_means_variances = clean_means_variances
         self.neighborcount = neighborcount
         self.rate = rate
-        self.clean_data = []
+        self.clean_data = None
+        self.synthetic_data = self.synthetic_data_info.drop(["CID", "geometry"], axis=1)
+        self.synthetic_data = self.synthetic_data.dropna()
+        self.synthetic_data["x"] = self.synthetic_data["x"] - np.mean(self.synthetic_data['x'])
+        self.synthetic_data["y"] = self.synthetic_data["y"] - np.mean(self.synthetic_data['y'])
+        self.synthetic_data["geometry"] = gpd.points_from_xy(x=self.synthetic_data.x, y=self.synthetic_data.y)
 
-    def get_attr(self, x, means,variances):
-        return np.random.normal(means[x-1], variances[x-1])
-
+    def get_attr(self, groups, means,variances):
+        attrvalues = []
+        for index in range(0, len(groups)):
+            attrvalues.append(np.random.multivariate_normal(means[groups[index]-1], variances[groups[index]-1]))
+        return attrvalues
+    
     def get_neighbors(self, synthetic_data):
         pts_all = []
         for pt in synthetic_data.iterrows():
@@ -58,24 +66,27 @@ class Synthesizer:
         return nearest_pt, n_pt_cols
     
     def generate_clean(self):
-        synthetic_data = self.synthetic_data_info.drop(["CID", "geometry"], axis=1)
-        synthetic_data["x"] = synthetic_data["x"] + 9965410
-        synthetic_data["y"] = synthetic_data["y"] - 5308400
-        synthetic_data["geometry"] = gpd.points_from_xy(x=synthetic_data.x, y=synthetic_data.y)
-
+        synthetic_data = self.synthetic_data
         attributes = []
-        for i in range(0, len(self.clean_means_variances.columns), 2):
-            attributename = self.clean_means_variances.columns[i].split("_")[0]
+        variances = self.clean_means_variances['covariance']
+        means = self.clean_means_variances['means']
+        for i in range(0, len(means[0])):
+            attributename = "attr"+str(i+1)
             attributes.append(attributename)
-            synthetic_data[attributename] = synthetic_data['clus_group'].apply(lambda x: self.get_attr(x, self.clean_means_variances.iloc[:,i], self.clean_means_variances.iloc[:,i+1] ))
+        synthetic_data[attributes] = self.get_attr(synthetic_data['clus_group'], means, variances)
+        
         nearest_pt, n_pt_cols = self.get_neighbors(synthetic_data)
         synthetic_data = synthetic_data.join(nearest_pt)
         complete_data = synthetic_data[attributes+n_pt_cols]
-        self.clean_data = complete_data
-        complete_data.to_csv(r'synthetic_data_clean.csv', header=None, index=True, sep=',')
+        self.clean_data = synthetic_data
+        complete_data.to_csv(r'synthetic_data_clean.txt', header=None, index=True, sep=',')
 
     def generate_defective(self):
         print("WIP")
 
-x = Synthesizer()
-x.generate_clean()
+    def display_gt(self):
+        fig, ax = plt.subplots(figsize=(10, 5))
+        plt.scatter(self.synthetic_data['x'], self.synthetic_data['y'], c=self.synthetic_data['clus_group'], cmap="Set1")
+        ax.set_axis_off()
+        ax.title.set_text('Ground Truth')
+        plt.show()
