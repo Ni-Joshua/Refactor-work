@@ -12,6 +12,9 @@ import pylab
 import networkx as nx
 import libpysal
 import numpy as np
+import scipy
+from scipy.stats import multivariate_normal, poisson
+
 from sklearn.metrics.cluster import adjusted_rand_score
 from sklearn.metrics import f1_score
 from sklearn import preprocessing
@@ -81,8 +84,25 @@ class Synthesizer:
         self.clean_data = synthetic_data
         complete_data.to_csv(r'synthetic_data_clean.txt', header=None, index=True, sep=',')
 
-    def generate_defective(self):
-        print("WIP")
+    def generate_defective(self, X, mu, Sigma, rate=0.1):
+        N, d = X.shape
+        mask = np.random.choice([True, False], (N, d), p=[rate, 1-rate])
+
+        if mode == "missing":
+            X_missing = copy.deepcopy(X)
+            X_missing[mask] = np.nan
+        elif mode == "extreme":
+            X_extreme = copy.deepcopy(X)
+            defects = 3 * np.diagonal(Sigma).reshape((1,-1)) * np.random.choice([1,-1], (N,d)) + multivariate_normal(mean=mu, cov=Sigma)
+            X_extreme[mask] = defects[mask]
+        elif mode == "ood":
+            X_ood = copy.deepcopy(X)
+            defects = mu.reshape((1,-1)) * poisson.rvs(1, size=(N, d))
+            X_ood[mask] = defects[mask]
+        else:
+            assert False, "Unknown defect mode!"
+
+        return X_missing, X_extreme, X_ood
 
     def display_gt(self):
         fig, ax = plt.subplots(figsize=(10, 5))
