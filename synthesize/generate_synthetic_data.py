@@ -32,7 +32,7 @@ from pyclustering.cluster.center_initializer import kmeans_plusplus_initializer
 import copy
 
 class Synthesizer:
-    def __init__(self, synthetic_data_info = gpd.read_file('sticc_points.shp'), 
+    def __init__(self, synthetic_data_info = gpd.read_file('Original Stable STICC Work\sticc_points.shx'), 
                  clean_means_variances = np.load("clean-means-variances.npz"),
                  neighborcount=3, rate = 0.3):
         np.random.seed(1234)
@@ -170,7 +170,7 @@ class Synthesizer:
         self.display_ood()
 
 
-
+#To Test the Code
 # temp = Synthesizer()
 # temp.generate_all()
 # temp.display_all()
